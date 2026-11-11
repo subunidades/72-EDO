@@ -88,7 +88,7 @@ const session=()=>{try{if(navigator.audioSession)navigator.audioSession.type="pl
 const A=()=>{if(ctx&&ctx.state==="closed")ctx=null;
 session();
 if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
-const comp=ctx.createDynamicsCompressor();master=ctx.createGain();master.gain.value=.7;let pv=master;[[110,4,3],[230,3,2.5],[3200,2.5,1],[7500,-4,.7]].forEach(([f,g,q])=>{const bq=ctx.createBiquadFilter();bq.type="peaking";bq.frequency.value=f;bq.gain.value=g;bq.Q.value=q;pv.connect(bq);pv=bq});pv.connect(comp);comp.connect(ctx.destination);
+const comp=ctx.createDynamicsCompressor();comp.threshold.value=-8;comp.knee.value=6;comp.ratio.value=8;comp.attack.value=.003;comp.release.value=.2;master=ctx.createGain();master.gain.value=.7;master.connect(comp);comp.connect(ctx.destination);
 const u=ctx.createBufferSource();u.buffer=ctx.createBuffer(1,1,22050);u.connect(ctx.destination);u.start(0);
 try{new Audio(silentWav()).play().catch(()=>{})}catch(e){}}
 if(ctx.state!=="running"){const c=ctx;c.resume().catch(()=>{if(ctx===c)ctx=null})}return ctx};
@@ -100,7 +100,6 @@ for(let k=1;k<=40;k++){const fk=f*k;if(fk>9000||fk>sr*.45)break;
 const am=Math.sin(Math.PI*k*.16)/Math.pow(k,.9),tau=t1/(1+.5*(k-1)),d1=Math.exp(-1/(sr*tau/3)),d2=Math.exp(-1/(sr*tau*1.3)),w=2*Math.PI*fk/sr;
 let e1=.6,e2=.4,y0=0,y1=Math.sin(w);const cw=2*Math.cos(w);
 for(let i=0;i<n;i++){x[i]+=am*(e1+e2)*y0;const y2=cw*y1-y0;y0=y1;y1=y2;e1*=d1;e2*=d2}}
-let y=0;const m=Math.floor(sr*.02);for(let i=0;i<m;i++){y+=.5*((Math.random()*2-1)-y);x[i]+=y*.45*Math.exp(-i/(sr*.003))}
 let pk=0;for(let i=0;i<n;i++)pk=Math.max(pk,Math.abs(x[i]));const fade=Math.floor(sr*.03);
 for(let i=0;i<n;i++)x[i]=x[i]/pk*(i>n-fade?(n-i)/fade:1);
 if(cache.size>300)cache.clear();cache.set(key,buf);return buf}
@@ -109,6 +108,8 @@ o.buffer=pluck(c,f,d);v.gain.setValueAtTime(g,s);o.connect(v);v.connect(master);
 const n={o,v};live.push(n);o.onended=()=>{live=live.filter(x=>x!==n)};
 status("Audio "+c.state+" · "+f.toFixed(1)+" Hz")}
 catch(e){status("Audio error: "+e.message)}}
+const aw=f=>{const q=f*f;return 148693636*q*q/((q+424.36)*Math.sqrt((q+11599.29)*(q+544496.41))*(q+148693636))};
+const lw=f=>aw(f)/aw(1000);
 function sine(f,d=1.6,g=.22){try{const c=A(),o=c.createOscillator(),v=c.createGain(),s=c.currentTime+.02,e=s+d;
 o.type="sine";o.frequency.value=f;v.gain.setValueAtTime(.0001,s);v.gain.exponentialRampToValueAtTime(g,s+.03);v.gain.exponentialRampToValueAtTime(.0001,e);
 o.connect(v);v.connect(master);o.start(s);o.stop(e+.05);const n={o,v};live.push(n);o.onended=()=>{live=live.filter(x=>x!==n)};
@@ -142,9 +143,10 @@ document.getElementById("rat").innerHTML=
 `<p class="hint"><b>${many?L.length+" pure ratios map to this step.":"1 pure ratio maps to this step."}</b>${many?" Pick one:":""}</p>`
 +(many?`<div class="row">${L.map((x,i)=>`<button class="sm${i===ri?"":" sec"}" aria-pressed="${i===ri}" data-a="pick" data-i="${i}">${x}</button>`).join("")}</div>`:"")
 +`<div class="ratio">${r}</div><div class="meta">pure ${j.toFixed(1)}¢ · 72-EDO ${c.toFixed(1)}¢ · error ${e>0?"+":""}${e.toFixed(1)}¢</div>`
-+`<div class="row"><button data-a="cmp">▶ 72-EDO, then pure ${r}</button></div>`}
++`<div class="row"><button data-a="cmp">▶ 72-EDO, then pure ${r}</button><button class="sec" data-a="tog">▶ Both at once (listen for beating)</button></div>`}
 document.getElementById("rat").onclick=e=>{const b=e.target.closest("button");if(!b)return;const a=b.dataset.a;
 if(a==="pick"){ri=+b.dataset.i;showRatio()}
+else if(a==="tog"){const j=base*Math.pow(2,cents(R[sel][ri])/1200);stop();tone(hz(sel),0,4,.22);tone(j,0,4,.22)}
 else if(a==="cmp"){const j=base*Math.pow(2,cents(R[sel][ri])/1200);stop();tone(hz(0),0,1.8);tone(hz(sel),0,1.8);tone(hz(0),2,1.8);tone(j,2,1.8)}};
 function parts(f){const o=[];for(let k=1;k<=40;k++){const fk=f*k;if(fk>9000)break;o.push({k,fk,am:Math.sin(Math.PI*k*.16)/Math.pow(k,.9)})}return o}
 function showPartials(){const P=parts(hz(sel)),n=P.length,p=P[pi],mx=Math.max(...P.map(q=>Math.abs(q.am))),w=300/n;
@@ -156,7 +158,7 @@ document.getElementById("par").innerHTML=`<p class="hint"><b>This note has ${n} 
 document.getElementById("par").onclick=e=>{const t=e.target.closest("[data-i],[data-a]");if(!t)return;const n=parts(hz(sel)).length,a=t.dataset.a;
 if(a==="pall"){stop();const P=parts(hz(sel)),sum=P.reduce((t,q)=>t+Math.abs(q.am),0);P.forEach(q=>{const g=Math.abs(q.am)/sum;if(g>.001)sine(q.fk,2.2,g)});return}
 if(!a)pi=+t.dataset.i;else if(a==="pp")pi=(pi+n-1)%n;else if(a==="pn")pi=(pi+1)%n;
-showPartials();stop();sine(parts(hz(sel))[pi].fk)};
+showPartials();stop();const fk=parts(hz(sel))[pi].fk;sine(fk,1.6,Math.min(.4,.1/lw(fk)))};
 document.getElementById("harm").onclick=()=>{stop();play([0,12,23,33,42,50,58,65,72],.5,1.8)};
 document.getElementById("sweep").onclick=()=>{stop();play([...Array(73).keys()],.12,.7)};
 document.getElementById("stop").onclick=stop;
