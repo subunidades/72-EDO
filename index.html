@@ -152,9 +152,9 @@ const st=Math.round(72*Math.log2(p.fk/base)),err=1200*Math.log2(p.fk/base)-st*50
 document.getElementById("par").innerHTML=`<p class="hint"><b>This note has ${n} partials</b>: pure sine waves that add up to the guitar tone. Tap a bar to hear one alone.</p>`
 +`<svg class="bars" viewBox="0 0 300 64" role="group" aria-label="Partial levels">${P.map((q,i)=>{const h=54*Math.abs(q.am)/mx;return `<rect data-i="${i}" x="${(i*w+.6).toFixed(1)}" y="${(60-h).toFixed(1)}" width="${(w-1.2).toFixed(1)}" height="${(h+4).toFixed(1)}" rx="1.5" fill="${i===pi?"var(--ac)":"var(--line)"}"/>`}).join("")}</svg>`
 +`<div class="meta">Partial ${p.k} of ${n} · ${p.fk.toFixed(1)} Hz · ${p.k}× the fundamental · ${Math.round(100*Math.abs(p.am)/mx)}% of the loudest<br>Nearest 72-EDO step: ${st%72}${st>=72?" (+"+Math.floor(st/72)+" oct)":""}, ${err>=0?"+":""}${err.toFixed(1)}¢ off</div>`
-+`<div class="row"><button class="sec sm" data-a="pp">‹ Previous partial</button><button class="sec sm" data-a="pn">Next partial ›</button></div><div class="row"><button data-a="p1">▶ Play partial ${p.k} alone</button><button class="sec" data-a="pall">▶ Play all ${n} together</button></div>`}
++`<div class="row"><button class="sec sm" data-a="pp">‹ Previous partial</button><button class="sec sm" data-a="pn">Next partial ›</button></div><div class="row"><button data-a="p1">▶ Play partial ${p.k} alone</button><button class="sec" data-a="pall">▶ Play all ${n} sine waves together</button></div>`}
 document.getElementById("par").onclick=e=>{const t=e.target.closest("[data-i],[data-a]");if(!t)return;const n=parts(hz(sel)).length,a=t.dataset.a;
-if(a==="pall"){stop();tone(hz(sel));return}
+if(a==="pall"){stop();const P=parts(hz(sel)),sum=P.reduce((t,q)=>t+Math.abs(q.am),0);P.forEach(q=>{const g=Math.abs(q.am)/sum;if(g>.001)sine(q.fk,2.2,g)});return}
 if(!a)pi=+t.dataset.i;else if(a==="pp")pi=(pi+n-1)%n;else if(a==="pn")pi=(pi+1)%n;
 showPartials();stop();sine(parts(hz(sel))[pi].fk)};
 document.getElementById("harm").onclick=()=>{stop();play([0,12,23,33,42,50,58,65,72],.5,1.8)};
