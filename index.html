@@ -44,6 +44,7 @@ h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 </head>
 <body>
 <main>
+<noscript><p>This page needs JavaScript to run.</p></noscript>
 <h1>72-EDO explorer</h1>
 <p class="sub">Twelve-tone equal temperament, each semitone split in six.</p>
 <div class="grid">
@@ -54,6 +55,7 @@ h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 </div>
 <div class="card" id="panel">
 <div class="big" id="step"></div>
+<div class="row"><button class="sec sm" id="sm">‹ −1 step</button><label class="hint">Step <input id="num" type="number" min="0" max="71" value="0" inputmode="numeric" aria-label="Step number, 0 to 71" style="width:4.5em;font:inherit;padding:6px"></label><button class="sec sm" id="sp">+1 step ›</button></div>
 <div class="row"><button id="pstep">▶ Play this step</button></div>
 <div class="meta" id="meta"></div>
 <h2>Pure ratio this step stands in for</h2>
@@ -66,7 +68,7 @@ h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 <h2>Scales and sweeps</h2>
 <div class="row"><button id="harm">▶ Harmonics 8–16</button><button id="sweep">▶ All 72 steps</button></div>
 <div class="row"><button id="stop" class="stop">■ Stop all sound</button><button id="beep" class="sec">Test beep (440 Hz)</button></div>
-<div class="status" id="status">Click a dot or the test beep to start audio.</div>
+<div class="status" id="status" role="status" aria-live="polite">Click a dot or the test beep to start audio.</div>
 </div>
 </div>
 </main>
@@ -92,27 +94,45 @@ try{new Audio(silentWav()).play().catch(()=>{})}catch(e){}}
 if(ctx.state!=="running"){const c=ctx;c.resume().catch(()=>{if(ctx===c)ctx=null})}return ctx};
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){session();if(ctx&&ctx.state!=="running")ctx.resume().catch(()=>{ctx=null})}});
 const cache=new Map();
-function pluck(c,f,d){const sr=c.sampleRate,key=f.toFixed(3)+"|"+d+"|"+sr,hit=cache.get(key);if(hit)return hit;
-const n=Math.floor(sr*(d+.05)),buf=c.createBuffer(1,n,sr),x=buf.getChannelData(0),t1=Math.max(.35,d*.5);
+function synth(sr,f,d){const n=Math.floor(sr*(d+.05)),x=new Float32Array(n),t1=Math.max(.35,d*.5);
 for(let k=1;k<=40;k++){const fk=f*k;if(fk>9000||fk>sr*.45)break;
 const am=Math.sin(Math.PI*k*.16)/Math.pow(k,.9),tau=t1/(1+.5*(k-1)),d1=Math.exp(-1/(sr*tau/3)),d2=Math.exp(-1/(sr*tau*1.3)),w=2*Math.PI*fk/sr;
 let e1=.6,e2=.4,y0=0,y1=Math.sin(w);const cw=2*Math.cos(w);
 for(let i=0;i<n;i++){x[i]+=am*(e1+e2)*y0;const y2=cw*y1-y0;y0=y1;y1=y2;e1*=d1;e2*=d2}}
 let pk=0;for(let i=0;i<n;i++)pk=Math.max(pk,Math.abs(x[i]));const fade=Math.floor(sr*.03);
 for(let i=0;i<n;i++)x[i]=x[i]/pk*(i>n-fade?(n-i)/fade:1);
+return x}
+function pluck(c,f,d){const sr=c.sampleRate,key=f.toFixed(3)+"|"+d+"|"+sr,hit=cache.get(key);if(hit)return hit;
+const x=synth(sr,f,d),buf=c.createBuffer(1,x.length,sr);buf.getChannelData(0).set(x);
 if(cache.size>300)cache.clear();cache.set(key,buf);return buf}
-function tone(f,t=0,d=2.5,g=.3){try{const c=A(),o=c.createBufferSource(),v=c.createGain(),s=c.currentTime+.02+t;
+function sineSamples(sr,f,d,g){const n=Math.floor(sr*(d+.05)),x=new Float32Array(n),k=Math.log(.0001/g)/(d-.03),w=2*Math.PI*f/sr;
+for(let i=0;i<n;i++){const t=i/sr;x[i]=t>d?0:Math.sin(w*i)*(t<.03?g*t/.03:g*Math.exp(k*(t-.03)))}return x}
+function wavFrom(x,sr,gain,pad){const n=x.length+pad,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+for(let i=0;i<x.length;i++)v.setInt16(44+(pad+i)*2,Math.max(-1,Math.min(1,x[i]*gain))*32767,true);
+return URL.createObjectURL(new Blob([b],{type:"audio/wav"}))}
+let fbl=[];
+function fallback(x,sr,gain,t){try{const url=wavFrom(x,sr,gain,Math.floor(t*sr)),a=new Audio(url);fbl.push(a);
+a.onended=()=>{URL.revokeObjectURL(url);fbl=fbl.filter(q=>q!==a)};
+a.play().catch(()=>status("Audio was blocked. Tap again, and check the silent switch."));
+status("Backup player in use while Web Audio starts up.")}catch(e){status("Audio unavailable: "+e.message)}}
+function tone(f,t=0,d=2.5,g=.3){try{const c=A();
+if(c.state!=="running"){fallback(synth(44100,f,d),44100,g*.7,t);return}
+const o=c.createBufferSource(),v=c.createGain(),s=c.currentTime+.02+t;
 o.buffer=pluck(c,f,d);v.gain.setValueAtTime(g,s);o.connect(v);v.connect(master);o.start(s);
 const n={o,v};live.push(n);o.onended=()=>{live=live.filter(x=>x!==n)};
 status("Audio "+c.state+" · "+f.toFixed(1)+" Hz")}
-catch(e){status("Audio error: "+e.message)}}
+catch(e){fallback(synth(44100,f,d),44100,g*.7,t)}}
 const aw=f=>{const q=f*f;return 148693636*q*q/((q+424.36)*Math.sqrt((q+11599.29)*(q+544496.41))*(q+148693636))};
 const lw=f=>aw(f)/aw(1000);
-function sine(f,d=1.6,g=.22){try{const c=A(),o=c.createOscillator(),v=c.createGain(),s=c.currentTime+.02,e=s+d;
+function sine(f,d=1.6,g=.22){try{const c=A();
+if(c.state!=="running"){fallback(sineSamples(44100,f,d,g),44100,.7,0);return}
+const o=c.createOscillator(),v=c.createGain(),s=c.currentTime+.02,e=s+d;
 o.type="sine";o.frequency.value=f;v.gain.setValueAtTime(.0001,s);v.gain.exponentialRampToValueAtTime(g,s+.03);v.gain.exponentialRampToValueAtTime(.0001,e);
 o.connect(v);v.connect(master);o.start(s);o.stop(e+.05);const n={o,v};live.push(n);o.onended=()=>{live=live.filter(x=>x!==n)};
-status("Audio "+c.state+" · "+f.toFixed(1)+" Hz sine")}catch(e){status("Audio error: "+e.message)}}
-function stop(){timers.forEach(clearTimeout);timers=[];if(!ctx)return;const now=ctx.currentTime;
+status("Audio "+c.state+" · "+f.toFixed(1)+" Hz sine")}catch(e){fallback(sineSamples(44100,f,d,g),44100,.7,0)}}
+function stop(){timers.forEach(clearTimeout);timers=[];fbl.forEach(a=>{try{a.pause()}catch(e){}});fbl=[];if(!ctx)return;const now=ctx.currentTime;
 live.forEach(({o,v})=>{try{const x=Math.min(Math.max(v.gain.value,.0001),.5);v.gain.cancelScheduledValues(now);v.gain.setValueAtTime(x,now);v.gain.exponentialRampToValueAtTime(.0001,now+.03);o.stop(now+.04)}catch(e){}});live=[]}
 const play=(arr,gap=.45,d=1.8)=>arr.forEach((s,i)=>tone(hz(s),i*gap,d));
 const chord=a=>a.forEach(s=>tone(hz(s),0,3,.2));
@@ -122,16 +142,19 @@ function select(s,snd=true){sel=s;document.querySelectorAll(".dot").forEach(d=>d
 document.getElementById("step").innerHTML=s+"<small>\\72</small>";
 const c=s*50/3;document.getElementById("meta").innerHTML=`<span class="pill" style="background:${COL(s%6)}"></span>${c.toFixed(1)}¢ · ${hz(s).toFixed(1)} Hz from C4 · nearest 12-EDO: ${name(s)} · ring: ${RING[s%6]}`;
 ri=0;pi=0;showRatio();showPartials();
+const nm=document.getElementById("num");if(nm)nm.value=s;try{history.replaceState(null,"","#"+s)}catch(e){}
 if(snd){stop();tone(hz(s))}}
 function build(){const w=document.getElementById("wheel");let h="";
 for(let i=0;i<72;i++){const a=i/72*2*Math.PI-Math.PI/2,r=148,x=180+r*Math.cos(a),y=180+r*Math.sin(a),big=i%6===0;
-h+=`<circle class="dot" data-s="${i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${big?9:5.5}" fill="${COL(i%6)}" tabindex="0" role="button" aria-label="Step ${i}"/>`;
+h+=`<circle class="dot" data-s="${i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${big?9:5.5}" fill="${COL(i%6)}" tabindex="0" role="button" aria-label="Step ${i}, ${(i*50/3).toFixed(1)} cents, ring ${RING[i%6]}${R[i].length>1?", several pure ratios":""}"/>`;
 if(R[i].length>1)h+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.2" fill="var(--card)" pointer-events="none"/>`;
 if(big){const lr=122;h+=`<text x="${(180+lr*Math.cos(a)).toFixed(1)}" y="${(180+lr*Math.sin(a)+4).toFixed(1)}" text-anchor="middle" font-size="12" fill="var(--mut)">${NOTE[i/6]}</text>`}}
 h+=`<text x="180" y="176" text-anchor="middle" font-size="15" fill="var(--fg)">72 steps</text><text x="180" y="196" text-anchor="middle" font-size="12" fill="var(--mut)">16.67¢ each</text>`;
 w.innerHTML=h;
 w.addEventListener("click",e=>{const d=e.target.closest(".dot");if(d)select(+d.dataset.s)});
-w.addEventListener("keydown",e=>{const d=e.target.closest(".dot");if(d&&(e.key==="Enter"||e.key===" ")){e.preventDefault();select(+d.dataset.s)}});
+w.addEventListener("keydown",e=>{const d=e.target.closest(".dot");if(!d)return;
+if(e.key==="Enter"||e.key===" "){e.preventDefault();select(+d.dataset.s)}
+else if(/^Arrow(Right|Up|Left|Down)$/.test(e.key)){e.preventDefault();const n=(+d.dataset.s+(/Right|Up/.test(e.key)?1:71))%72;select(n);const t=w.querySelector(`[data-s="${n}"]`);if(t)t.focus()}});
 document.getElementById("leg").innerHTML=RING.map((n,i)=>`<span><span class="pill" style="background:${COL(i)}"></span>${n}</span>`).join("")+`<span>◉ several pure ratios</span>`}
 const TR=[["zo 6:7:9",[0,16,42]],["gu 10:12:15",[0,19,42]],["ilo 18:22:27",[0,21,42]],["yo 4:5:6",[0,23,42]],["ru 14:18:27",[0,26,42]]];
 document.getElementById("chords").innerHTML=TR.map((t,i)=>`<button class="sec" data-c="${i}">▶ ${t[0]}</button>`).join("");
@@ -163,7 +186,10 @@ document.getElementById("sweep").onclick=()=>{stop();for(let i=0;i<=72;i++)timer
 document.getElementById("stop").onclick=stop;
 document.getElementById("pstep").onclick=()=>{stop();tone(hz(sel))};
 document.getElementById("beep").onclick=()=>sine(440,1,.3);
-build();select(0,false);
+document.getElementById("sm").onclick=()=>select((sel+71)%72);
+document.getElementById("sp").onclick=()=>select((sel+1)%72);
+document.getElementById("num").onchange=e=>{const v=parseInt(e.target.value,10);select(v>=0&&v<72?v:sel)};
+build();const h0=parseInt(((window.location&&window.location.hash)||"").slice(1),10);select(h0>=0&&h0<72?h0:0,false);
 </script>
 </body>
 </html>
