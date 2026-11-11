@@ -5,41 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>72-EDO Explorer</title>
 <style>
-:root{--bg:#f3f1f7;--fg:#1d1a2b;--mut:#6b6780;--card:#fff;--line:#d9d5e6;
---ac:#4b2fc8;--acfg:#fff;--r0:#6c6a7c;--r1:#d6453d;--r2:#e08a1e;--r3:#c9b21a;--r4:#2f9e6e;--r5:#2a77c9;
+/* ---------- tokens ---------- */
+:root{--bg:#f3f1f7;--fg:#1d1a2b;--mut:#625e78;--card:#fff;--line:#d9d5e6;--ac:#4b2fc8;--acfg:#fff;--danger:#c23a32;
+--r0:#6c6a7c;--r1:#d6453d;--r2:#e08a1e;--r3:#c9b21a;--r4:#2f9e6e;--r5:#2a77c9;
+--ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--serif:Georgia,"Times New Roman",serif;
+--rad:10px;--radl:14px;--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--lift:0 2px 0 rgba(0,0,0,.22);
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15131f;--fg:#ece9f7;--mut:#9a96b0;--card:#1f1c2e;--line:#35314b;--ac:#a794ff;--acfg:#15131f;--r0:#a09db4;--r1:#ef6b62;--r2:#f0a43f;--r3:#e3cf4a;--r4:#4cc794;--r5:#5aa2f0}}
-:root[data-theme="dark"]{--bg:#15131f;--fg:#ece9f7;--mut:#9a96b0;--card:#1f1c2e;--line:#35314b;--ac:#a794ff;--acfg:#15131f;--r0:#a09db4;--r1:#ef6b62;--r2:#f0a43f;--r3:#e3cf4a;--r4:#4cc794;--r5:#5aa2f0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15131f;--fg:#ece9f7;--mut:#a29fb8;--card:#1f1c2e;--line:#35314b;--ac:#a794ff;--acfg:#15131f;--danger:#ff7a70;--r0:#a09db4;--r1:#ef6b62;--r2:#f0a43f;--r3:#e3cf4a;--r4:#4cc794;--r5:#5aa2f0}}
+:root[data-theme="dark"]{--bg:#15131f;--fg:#ece9f7;--mut:#a29fb8;--card:#1f1c2e;--line:#35314b;--ac:#a794ff;--acfg:#15131f;--danger:#ff7a70;--r0:#a09db4;--r1:#ef6b62;--r2:#f0a43f;--r3:#e3cf4a;--r4:#4cc794;--r5:#5aa2f0}
 *{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.5 Georgia,"Times New Roman",serif}
-main{max-width:980px;margin:0 auto;padding:24px 18px 40px}
-h1{font-size:2rem;font-weight:600;margin:0 0 4px}
-.sub{color:var(--mut);margin:0 0 20px;max-width:60ch}
-.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 var(--ui)}
+main{max-width:980px;margin:0 auto;padding:var(--s5) var(--s4) 40px}
+/* ---------- layout ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--s5);align-items:start}
 @media(max-width:760px){.grid{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
-svg{width:100%;height:auto;display:block}
-.dot{cursor:pointer;outline:none}.dot:focus-visible{stroke:var(--fg);stroke-width:3}
-.big{font-size:3rem;font-weight:600;line-height:1}.big small{font-size:1.1rem;color:var(--mut);font-weight:400}
-.meta{color:var(--mut);margin:6px 0 12px}
-button{font:inherit;font-size:.95rem;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-weight:600;color:var(--acfg);background:var(--ac);border:2px solid var(--ac);border-radius:10px;padding:9px 14px;min-height:42px;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.28);transition:transform .05s,box-shadow .05s,filter .1s}
+@media(min-width:761px){.grid>.card:first-child{position:sticky;top:var(--s4)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radl);padding:var(--s4)}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin:var(--s2) 0}
+svg{width:100%;height:auto;display:block}svg text{font-family:var(--ui)}
+/* ---------- type ---------- */
+h1{font:600 2rem/1.15 var(--serif);margin:0 0 var(--s1)}
+h2{font-size:.95rem;font-weight:700;margin:var(--s5) 0 var(--s2);padding-top:var(--s4);border-top:1px solid var(--line)}
+.sub{color:var(--mut);margin:0 0 var(--s5);max-width:60ch}
+.hint{color:var(--mut);font-size:.88rem;margin:0 0 var(--s2)}
+.meta{color:var(--mut);font-size:.92rem;margin:var(--s2) 0 var(--s3)}
+.big,.ratio{font-family:var(--serif);font-weight:600;line-height:1.1}
+.big{font-size:3rem}.big small{font-size:1.1rem;color:var(--mut);font-weight:400}
+.ratio{font-size:2.4rem}
+/* ---------- controls: one system ----------
+   filled   = plays sound            (▶)
+   outlined = navigates or steps     (nav)
+   toggle   = picks one of several   (chip, aria-pressed)
+   red      = stops sound            (stop)       */
+button,input{font:600 .95rem/1.2 var(--ui);min-height:44px;border:2px solid var(--ac);border-radius:var(--rad)}
+button{padding:0 var(--s4);color:var(--acfg);background:var(--ac);cursor:pointer;box-shadow:var(--lift);transition:transform .05s,box-shadow .05s,filter .1s}
 button:hover{filter:brightness(1.12)}
 button:active{transform:translateY(2px);box-shadow:none}
-button:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
-button.sec{background:transparent;color:var(--fg);border-color:var(--fg);box-shadow:0 2px 0 var(--line)}
-button.stop{background:transparent;color:#d6453d;border-color:#d6453d;box-shadow:0 2px 0 var(--line)}
-button.sm{min-height:36px;padding:6px 10px;font-size:.88rem;white-space:nowrap}
-.dot{stroke:transparent;stroke-width:2}
+button.nav,button.chip,button.stop{color:var(--fg);background:transparent;border-color:var(--fg)}
+button.nav:hover,button.chip:hover,button.stop:hover{background:var(--line);filter:none}
+button.chip[aria-pressed="true"]{color:var(--acfg);background:var(--ac);border-color:var(--ac)}
+button.chip[aria-pressed="true"]:hover{background:var(--ac);filter:brightness(1.12)}
+button.stop{color:var(--danger);border-color:var(--danger)}
+button.sm,input.sm{min-height:38px;padding:0 var(--s3);font-size:.88rem}
+button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none;filter:none}
+input{width:5em;padding:0 var(--s3);color:var(--fg);background:var(--card);border-color:var(--mut);font-weight:500}
+.field{display:inline-flex;align-items:center;gap:var(--s2);color:var(--mut);font-size:.88rem}
+:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+/* ---------- wheel and bars ---------- */
+.dot{cursor:pointer;outline:none;stroke:transparent;stroke-width:2}
 .dot:hover{stroke:var(--fg);stroke-width:2.5}
 .dot.sel{stroke:var(--fg);stroke-width:4}
-.ratio{font-size:2.4rem;font-weight:600;line-height:1.1}
-.bars{width:100%;height:auto;margin:6px 0}.bars rect{cursor:pointer}.bars rect:hover{fill:var(--fg)}
-.hint{color:var(--mut);font-size:.9rem;margin:2px 0 10px;font-family:system-ui,sans-serif}
-.status{font:.85rem system-ui,sans-serif;color:var(--mut);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;margin-top:10px}
-.row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.dot:focus-visible{stroke:var(--ac);stroke-width:5}
+.bars{margin:var(--s2) 0}
+.bars rect{cursor:pointer;fill:var(--mut);opacity:.4}
+.bars rect:hover{opacity:.75}
+.bars rect.on,.bars rect.on:hover{fill:var(--ac);opacity:1}
+/* ---------- status, legend ---------- */
+.status{font-size:.85rem;color:var(--mut);background:var(--bg);border:1px dashed var(--line);border-radius:var(--rad);padding:var(--s2) var(--s3);margin-top:var(--s3)}
+.leg{display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4);color:var(--mut);font-size:.88rem;margin-top:var(--s2)}
 .pill{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
-.leg{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--mut);font-size:.9rem;margin-top:8px}
-h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 </style>
 </head>
 <body>
@@ -55,7 +79,7 @@ h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 </div>
 <div class="card" id="panel">
 <div class="big" id="step"></div>
-<div class="row"><button class="sec sm" id="sm">‹ −1 step</button><label class="hint">Step <input id="num" type="number" min="0" max="71" value="0" inputmode="numeric" aria-label="Step number, 0 to 71" style="width:4.5em;font:inherit;padding:6px"></label><button class="sec sm" id="sp">+1 step ›</button></div>
+<div class="row"><button class="nav sm" id="sm">‹ −1 step</button><label class="field">Step <input id="num" class="sm" type="number" min="0" max="71" value="0" inputmode="numeric" aria-label="Step number, 0 to 71"></label><button class="nav sm" id="sp">+1 step ›</button></div>
 <div class="row"><button id="pstep">▶ Play this step</button></div>
 <div class="meta" id="meta"></div>
 <h2>Pure ratio this step stands in for</h2>
@@ -67,7 +91,7 @@ h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 <div class="row" id="chords"></div>
 <h2>Scales and sweeps</h2>
 <div class="row"><button id="harm">▶ Harmonics 8–16</button><button id="sweep">▶ All 72 steps</button></div>
-<div class="row"><button id="stop" class="stop">■ Stop all sound</button><button id="beep" class="sec">Test beep (440 Hz)</button></div>
+<div class="row"><button id="stop" class="stop">■ Stop all sound</button><button id="beep">Test beep (440 Hz)</button></div>
 <div class="status" id="status" role="status" aria-live="polite">Click a dot or the test beep to start audio.</div>
 </div>
 </div>
@@ -157,14 +181,14 @@ if(e.key==="Enter"||e.key===" "){e.preventDefault();select(+d.dataset.s)}
 else if(/^Arrow(Right|Up|Left|Down)$/.test(e.key)){e.preventDefault();const n=(+d.dataset.s+(/Right|Up/.test(e.key)?1:71))%72;select(n);const t=w.querySelector(`[data-s="${n}"]`);if(t)t.focus()}});
 document.getElementById("leg").innerHTML=RING.map((n,i)=>`<span><span class="pill" style="background:${COL(i)}"></span>${n}</span>`).join("")+`<span>◉ several pure ratios</span>`}
 const TR=[["zo 6:7:9",[0,16,42]],["gu 10:12:15",[0,19,42]],["ilo 18:22:27",[0,21,42]],["yo 4:5:6",[0,23,42]],["ru 14:18:27",[0,26,42]]];
-document.getElementById("chords").innerHTML=TR.map((t,i)=>`<button class="sec" data-c="${i}">▶ ${t[0]}</button>`).join("");
+document.getElementById("chords").innerHTML=TR.map((t,i)=>`<button data-c="${i}">▶ ${t[0]}</button>`).join("");
 document.getElementById("chords").onclick=e=>{const b=e.target.closest("button");if(b){stop();chord(TR[+b.dataset.c][1].map(x=>x+sel))}};
 function showRatio(){const L=R[sel],r=L[ri],j=cents(r),c=sel*50/3,e=c-j,many=L.length>1;
 document.getElementById("rat").innerHTML=
 `<p class="hint"><b>${many?L.length+" pure ratios map to this step.":"1 pure ratio maps to this step."}</b>${many?" Pick one:":""}</p>`
-+(many?`<div class="row">${L.map((x,i)=>`<button class="sm${i===ri?"":" sec"}" aria-pressed="${i===ri}" data-a="pick" data-i="${i}">${x}</button>`).join("")}</div>`:"")
++(many?`<div class="row">${L.map((x,i)=>`<button class="chip sm" aria-pressed="${i===ri}" data-a="pick" data-i="${i}">${x}</button>`).join("")}</div>`:"")
 +`<div class="ratio">${r}</div><div class="meta">pure ${j.toFixed(1)}¢ · 72-EDO ${c.toFixed(1)}¢ · error ${e>0?"+":""}${e.toFixed(1)}¢</div>`
-+`<div class="row"><button data-a="cmp">▶ 72-EDO, then pure ${r}</button><button class="sec" data-a="tog">▶ Both at once (listen for beating)</button></div>`}
++`<div class="row"><button data-a="cmp">▶ 72-EDO, then pure ${r}</button><button data-a="tog">▶ Both at once (listen for beating)</button></div>`}
 document.getElementById("rat").onclick=e=>{const b=e.target.closest("button");if(!b)return;const a=b.dataset.a;
 if(a==="pick"){ri=+b.dataset.i;showRatio()}
 else if(a==="tog"){const j=base*Math.pow(2,cents(R[sel][ri])/1200);stop();tone(hz(sel),0,4,.22);tone(j,0,4,.22)}
@@ -174,9 +198,9 @@ function showPartials(){const P=parts(hz(sel)),n=P.length,p=P[pi],mx=Math.max(..
 const have=new Set(P.map(q=>q.k)),miss=[];for(let k=1;k<P[n-1].k;k++)if(!have.has(k))miss.push(k);
 const st=Math.round(72*Math.log2(p.fk/base)),err=1200*Math.log2(p.fk/base)-st*50/3;
 document.getElementById("par").innerHTML=`<p class="hint"><b>This note has ${n} partials</b>: pure sine waves that add up to the guitar tone. Tap a bar to hear one alone. Solo partials play at equal loudness, not their true level; "Play all" uses the true levels.${miss.length?` Harmonic ${miss.join(", ")} ${miss.length>1?"are":"is"} absent here: the pick position cancels ${miss.length>1?"them":"it"}.`:""}</p>`
-+`<svg class="bars" viewBox="0 0 300 64" role="group" aria-label="Partial levels">${P.map((q,i)=>{const h=54*Math.abs(q.am)/mx;return `<rect data-i="${i}" x="${(i*w+.6).toFixed(1)}" y="${(60-h).toFixed(1)}" width="${(w-1.2).toFixed(1)}" height="${(h+4).toFixed(1)}" rx="1.5" fill="${i===pi?"var(--ac)":"var(--line)"}"/>`}).join("")}</svg>`
++`<svg class="bars" viewBox="0 0 300 64" role="group" aria-label="Partial levels">${P.map((q,i)=>{const h=54*Math.abs(q.am)/mx;return `<rect data-i="${i}" x="${(i*w+.6).toFixed(1)}" y="${(60-h).toFixed(1)}" width="${(w-1.2).toFixed(1)}" height="${(h+4).toFixed(1)}" rx="1.5" class="${i===pi?"on":""}"/>`}).join("")}</svg>`
 +`<div class="meta">Partial ${pi+1} of ${n} · ${p.fk.toFixed(1)} Hz · harmonic ${p.k} (${p.k}× the fundamental) · ${Math.round(100*Math.abs(p.am)/mx)}% of the loudest<br>Nearest 72-EDO step: ${st%72}${st>=72?" (+"+Math.floor(st/72)+" oct)":""}, ${err>=0?"+":""}${err.toFixed(1)}¢ off</div>`
-+`<div class="row"><button class="sec sm" data-a="pp">‹ Previous partial</button><button class="sec sm" data-a="pn">Next partial ›</button></div><div class="row"><button data-a="p1">▶ Play this partial alone</button><button class="sec" data-a="pall">▶ Play all ${n} sine waves together</button></div>`}
++`<div class="row"><button class="nav sm" data-a="pp">‹ Previous partial</button><button class="nav sm" data-a="pn">Next partial ›</button></div><div class="row"><button data-a="p1">▶ Play this partial alone</button><button data-a="pall">▶ Play all ${n} sine waves together</button></div>`}
 document.getElementById("par").onclick=e=>{const t=e.target.closest("[data-i],[data-a]");if(!t)return;const n=parts(hz(sel)).length,a=t.dataset.a;
 if(a==="pall"){stop();const P=parts(hz(sel)),sum=P.reduce((t,q)=>t+Math.abs(q.am),0);P.forEach(q=>{const g=Math.abs(q.am)/sum;if(g>.001)sine(q.fk,2.2,g)});return}
 if(!a)pi=+t.dataset.i;else if(a==="pp")pi=(pi+n-1)%n;else if(a==="pn")pi=(pi+1)%n;
