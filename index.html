@@ -74,24 +74,47 @@ const RING=["plain","up","dup","trup","dud","down"],COL=i=>`var(--r${i})`;
 const NOTE=["C","C♯","D","E♭","E","F","F♯","G","A♭","A","B♭","B"];
 const base=261.63,hz=s=>base*Math.pow(2,s/72),cents=r=>{const[a,b]=r.split("/").map(Number);return 1200*Math.log2(a/b)};
 let sel=0,ctx=null,timers=[];
-let live=[];
+let live=[],master=null;
 const status=m=>{const e=document.getElementById("status");if(e)e.textContent=m};
-const A=()=>{if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state!=="running")ctx.resume();return ctx};
-function tone(f,t=0,d=1.1,g=.3){try{const c=A(),o=c.createOscillator(),v=c.createGain(),s=c.currentTime+.03+t;
-o.type="triangle";o.frequency.value=f;v.gain.setValueAtTime(0,s);v.gain.linearRampToValueAtTime(g,s+.02);
-v.gain.exponentialRampToValueAtTime(.0001,s+d);o.connect(v);v.connect(c.destination);o.start(s);o.stop(s+d+.05);
-live.push(o);o.onended=()=>{live=live.filter(x=>x!==o)};status("Audio "+c.state+" · "+f.toFixed(1)+" Hz")}
+function silentWav(){const n=800,b=new ArrayBuffer(44+n*2),v=new DataView(b),w=(o,t)=>[...t].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));
+w(0,"RIFF");v.setUint32(4,36+n*2,true);w(8,"WAVEfmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+v.setUint32(24,8000,true);v.setUint32(28,16000,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,n*2,true);
+return URL.createObjectURL(new Blob([b],{type:"audio/wav"}))}
+const session=()=>{try{if(navigator.audioSession)navigator.audioSession.type="playback"}catch(e){}};
+const A=()=>{if(ctx&&ctx.state==="closed")ctx=null;
+session();
+if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();
+const comp=ctx.createDynamicsCompressor();master=ctx.createGain();master.gain.value=.8;master.connect(comp);comp.connect(ctx.destination);
+const u=ctx.createBufferSource();u.buffer=ctx.createBuffer(1,1,22050);u.connect(ctx.destination);u.start(0);
+try{new Audio(silentWav()).play().catch(()=>{})}catch(e){}}
+if(ctx.state!=="running"){const c=ctx;c.resume().catch(()=>{if(ctx===c)ctx=null})}return ctx};
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){session();if(ctx&&ctx.state!=="running")ctx.resume().catch(()=>{ctx=null})}});
+const cache=new Map();
+function pluck(c,f,d){const sr=c.sampleRate,key=f.toFixed(3)+"|"+d+"|"+sr,hit=cache.get(key);if(hit)return hit;
+const n=Math.floor(sr*(d+.05)),buf=c.createBuffer(1,n,sr),x=buf.getChannelData(0),t1=Math.max(.3,d*.5);
+for(let k=1;k<=24;k++){const fk=f*k*1;if(fk>sr*.45)break;
+const a=Math.sin(Math.PI*k*.17)/Math.pow(k,1.1),dec=Math.exp(-1/(sr*t1/(1+.55*(k-1)))),w=2*Math.PI*fk/sr;let e=a;
+for(let i=0;i<n;i++){x[i]+=e*Math.sin(w*i);e*=dec}}
+let y=0;const m=Math.floor(sr*.02);for(let i=0;i<m;i++){y+=.35*((Math.random()*2-1)-y);x[i]+=y*.3*Math.exp(-i/(sr*.004))}
+let pk=0;for(let i=0;i<n;i++)pk=Math.max(pk,Math.abs(x[i]));const fade=Math.floor(sr*.03);
+for(let i=0;i<n;i++)x[i]=x[i]/pk*(i>n-fade?(n-i)/fade:1);
+if(cache.size>300)cache.clear();cache.set(key,buf);return buf}
+function tone(f,t=0,d=2.5,g=.3){try{const c=A(),o=c.createBufferSource(),v=c.createGain(),s=c.currentTime+.02+t;
+o.buffer=pluck(c,f,d);v.gain.setValueAtTime(g,s);o.connect(v);v.connect(master);o.start(s);
+const n={o,v};live.push(n);o.onended=()=>{live=live.filter(x=>x!==n)};
+status("Audio "+c.state+" · "+f.toFixed(1)+" Hz")}
 catch(e){status("Audio error: "+e.message)}}
-function stop(){live.forEach(o=>{try{o.stop()}catch(e){}});live=[]}
-const play=(arr,gap=.45,d=1)=>arr.forEach((s,i)=>tone(hz(s),i*gap,d));
-const chord=a=>a.forEach(s=>tone(hz(s),0,2,.2));
+function stop(){if(!ctx)return;const now=ctx.currentTime;
+live.forEach(({o,v})=>{try{const x=Math.min(Math.max(v.gain.value,.0001),.5);v.gain.cancelScheduledValues(now);v.gain.setValueAtTime(x,now);v.gain.exponentialRampToValueAtTime(.0001,now+.03);o.stop(now+.04)}catch(e){}});live=[]}
+const play=(arr,gap=.45,d=1.8)=>arr.forEach((s,i)=>tone(hz(s),i*gap,d));
+const chord=a=>a.forEach(s=>tone(hz(s),0,3,.2));
 function name(s){const k=Math.round(s/6),o=s-k*6;const n=NOTE[k%12];
 return o===0?n:n+" "+(o>0?"+":"−")+Math.abs(o)+" moria"}
 function select(s,snd=true){sel=s;document.querySelectorAll(".dot").forEach(d=>d.classList.toggle("sel",+d.dataset.s===s));
 document.getElementById("step").innerHTML=s+"<small>\\72</small>";
 const c=s*50/3;document.getElementById("meta").innerHTML=`<span class="pill" style="background:${COL(s%6)}"></span>${c.toFixed(1)}¢ · ${hz(s).toFixed(1)} Hz from C4 · nearest 12-EDO: ${name(s)} · ring: ${RING[s%6]}`;
 document.getElementById("rat").innerHTML=R[s].map(r=>{const j=cents(r),e=c-j;return `<tr><td>${r}</td><td>${j.toFixed(1)}</td><td>${e>0?"+":""}${e.toFixed(1)}¢</td><td><button class="sm" data-r="${r}">▶ 72-EDO, then just</button></td></tr>`}).join("");
-if(snd)tone(hz(s))}
+if(snd){stop();tone(hz(s))}}
 function build(){const w=document.getElementById("wheel");let h="";
 for(let i=0;i<72;i++){const a=i/72*2*Math.PI-Math.PI/2,r=148,x=180+r*Math.cos(a),y=180+r*Math.sin(a),big=i%6===0;
 h+=`<circle class="dot" data-s="${i}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${big?9:5.5}" fill="${COL(i%6)}" tabindex="0" role="button" aria-label="Step ${i}"/>`;
@@ -105,9 +128,9 @@ const TR=[["zo 6:7:9",[0,16,42]],["gu 10:12:15",[0,19,42]],["ilo 18:22:27",[0,21
 document.getElementById("chords").innerHTML=TR.map((t,i)=>`<button class="sec" data-c="${i}">▶ ${t[0]}</button>`).join("");
 document.getElementById("chords").onclick=e=>{const b=e.target.closest("button");if(b){stop();chord(TR[+b.dataset.c][1].map(x=>x+sel))}};
 document.getElementById("rat").onclick=e=>{const b=e.target.closest("button");if(!b)return;
-const j=base*Math.pow(2,cents(b.dataset.r)/1200);stop();tone(hz(0),0,1.2);tone(hz(sel),0,1.2);tone(hz(0),1.4,1.2);tone(j,1.4,1.2)};
-document.getElementById("harm").onclick=()=>{stop();play([0,12,23,33,42,50,58,65,72],.5,.9)};
-document.getElementById("sweep").onclick=()=>{stop();play([...Array(73).keys()],.12,.4)};
+const j=base*Math.pow(2,cents(b.dataset.r)/1200);stop();tone(hz(0),0,1.8);tone(hz(sel),0,1.8);tone(hz(0),2,1.8);tone(j,2,1.8)};
+document.getElementById("harm").onclick=()=>{stop();play([0,12,23,33,42,50,58,65,72],.5,1.8)};
+document.getElementById("sweep").onclick=()=>{stop();play([...Array(73).keys()],.12,.7)};
 document.getElementById("stop").onclick=stop;
 document.getElementById("pstep").onclick=()=>{stop();tone(hz(sel))};
 document.getElementById("beep").onclick=()=>tone(440,0,1,.3);
