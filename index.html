@@ -38,8 +38,6 @@ button.sm{min-height:36px;padding:6px 10px;font-size:.88rem;white-space:nowrap}
 .status{font:.85rem system-ui,sans-serif;color:var(--mut);background:var(--bg);border:1px dashed var(--line);border-radius:8px;padding:8px 10px;margin-top:10px}
 .row{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .pill{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
-table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
-th{font-weight:400;color:var(--mut)}
 .leg{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--mut);font-size:.9rem;margin-top:8px}
 h2{font-size:1.05rem;margin:16px 0 4px;font-weight:600}
 </style>
@@ -114,7 +112,7 @@ function sine(f,d=1.6,g=.22){try{const c=A(),o=c.createOscillator(),v=c.createGa
 o.type="sine";o.frequency.value=f;v.gain.setValueAtTime(.0001,s);v.gain.exponentialRampToValueAtTime(g,s+.03);v.gain.exponentialRampToValueAtTime(.0001,e);
 o.connect(v);v.connect(master);o.start(s);o.stop(e+.05);const n={o,v};live.push(n);o.onended=()=>{live=live.filter(x=>x!==n)};
 status("Audio "+c.state+" · "+f.toFixed(1)+" Hz sine")}catch(e){status("Audio error: "+e.message)}}
-function stop(){if(!ctx)return;const now=ctx.currentTime;
+function stop(){timers.forEach(clearTimeout);timers=[];if(!ctx)return;const now=ctx.currentTime;
 live.forEach(({o,v})=>{try{const x=Math.min(Math.max(v.gain.value,.0001),.5);v.gain.cancelScheduledValues(now);v.gain.setValueAtTime(x,now);v.gain.exponentialRampToValueAtTime(.0001,now+.03);o.stop(now+.04)}catch(e){}});live=[]}
 const play=(arr,gap=.45,d=1.8)=>arr.forEach((s,i)=>tone(hz(s),i*gap,d));
 const chord=a=>a.forEach(s=>tone(hz(s),0,3,.2));
@@ -148,22 +146,23 @@ document.getElementById("rat").onclick=e=>{const b=e.target.closest("button");if
 if(a==="pick"){ri=+b.dataset.i;showRatio()}
 else if(a==="tog"){const j=base*Math.pow(2,cents(R[sel][ri])/1200);stop();tone(hz(sel),0,4,.22);tone(j,0,4,.22)}
 else if(a==="cmp"){const j=base*Math.pow(2,cents(R[sel][ri])/1200);stop();tone(hz(0),0,1.8);tone(hz(sel),0,1.8);tone(hz(0),2,1.8);tone(j,2,1.8)}};
-function parts(f){const o=[];for(let k=1;k<=40;k++){const fk=f*k;if(fk>9000)break;o.push({k,fk,am:Math.sin(Math.PI*k*.16)/Math.pow(k,.9)})}return o}
+function parts(f){const o=[];for(let k=1;k<=40;k++){const fk=f*k;if(fk>9000)break;const am=Math.sin(Math.PI*k*.16)/Math.pow(k,.9);if(Math.abs(am)>1e-6)o.push({k,fk,am})}return o}
 function showPartials(){const P=parts(hz(sel)),n=P.length,p=P[pi],mx=Math.max(...P.map(q=>Math.abs(q.am))),w=300/n;
+const have=new Set(P.map(q=>q.k)),miss=[];for(let k=1;k<P[n-1].k;k++)if(!have.has(k))miss.push(k);
 const st=Math.round(72*Math.log2(p.fk/base)),err=1200*Math.log2(p.fk/base)-st*50/3;
-document.getElementById("par").innerHTML=`<p class="hint"><b>This note has ${n} partials</b>: pure sine waves that add up to the guitar tone. Tap a bar to hear one alone.</p>`
+document.getElementById("par").innerHTML=`<p class="hint"><b>This note has ${n} partials</b>: pure sine waves that add up to the guitar tone. Tap a bar to hear one alone. Solo partials play at equal loudness, not their true level; "Play all" uses the true levels.${miss.length?` Harmonic ${miss.join(", ")} ${miss.length>1?"are":"is"} absent here: the pick position cancels ${miss.length>1?"them":"it"}.`:""}</p>`
 +`<svg class="bars" viewBox="0 0 300 64" role="group" aria-label="Partial levels">${P.map((q,i)=>{const h=54*Math.abs(q.am)/mx;return `<rect data-i="${i}" x="${(i*w+.6).toFixed(1)}" y="${(60-h).toFixed(1)}" width="${(w-1.2).toFixed(1)}" height="${(h+4).toFixed(1)}" rx="1.5" fill="${i===pi?"var(--ac)":"var(--line)"}"/>`}).join("")}</svg>`
-+`<div class="meta">Partial ${p.k} of ${n} · ${p.fk.toFixed(1)} Hz · ${p.k}× the fundamental · ${Math.round(100*Math.abs(p.am)/mx)}% of the loudest<br>Nearest 72-EDO step: ${st%72}${st>=72?" (+"+Math.floor(st/72)+" oct)":""}, ${err>=0?"+":""}${err.toFixed(1)}¢ off</div>`
-+`<div class="row"><button class="sec sm" data-a="pp">‹ Previous partial</button><button class="sec sm" data-a="pn">Next partial ›</button></div><div class="row"><button data-a="p1">▶ Play partial ${p.k} alone</button><button class="sec" data-a="pall">▶ Play all ${n} sine waves together</button></div>`}
++`<div class="meta">Partial ${pi+1} of ${n} · ${p.fk.toFixed(1)} Hz · harmonic ${p.k} (${p.k}× the fundamental) · ${Math.round(100*Math.abs(p.am)/mx)}% of the loudest<br>Nearest 72-EDO step: ${st%72}${st>=72?" (+"+Math.floor(st/72)+" oct)":""}, ${err>=0?"+":""}${err.toFixed(1)}¢ off</div>`
++`<div class="row"><button class="sec sm" data-a="pp">‹ Previous partial</button><button class="sec sm" data-a="pn">Next partial ›</button></div><div class="row"><button data-a="p1">▶ Play this partial alone</button><button class="sec" data-a="pall">▶ Play all ${n} sine waves together</button></div>`}
 document.getElementById("par").onclick=e=>{const t=e.target.closest("[data-i],[data-a]");if(!t)return;const n=parts(hz(sel)).length,a=t.dataset.a;
 if(a==="pall"){stop();const P=parts(hz(sel)),sum=P.reduce((t,q)=>t+Math.abs(q.am),0);P.forEach(q=>{const g=Math.abs(q.am)/sum;if(g>.001)sine(q.fk,2.2,g)});return}
 if(!a)pi=+t.dataset.i;else if(a==="pp")pi=(pi+n-1)%n;else if(a==="pn")pi=(pi+1)%n;
 showPartials();stop();const fk=parts(hz(sel))[pi].fk;sine(fk,1.6,Math.min(.4,.1/lw(fk)))};
 document.getElementById("harm").onclick=()=>{stop();play([0,12,23,33,42,50,58,65,72],.5,1.8)};
-document.getElementById("sweep").onclick=()=>{stop();play([...Array(73).keys()],.12,.7)};
+document.getElementById("sweep").onclick=()=>{stop();for(let i=0;i<=72;i++)timers.push(setTimeout(()=>tone(hz(i),0,.7),i*120))};
 document.getElementById("stop").onclick=stop;
 document.getElementById("pstep").onclick=()=>{stop();tone(hz(sel))};
-document.getElementById("beep").onclick=()=>tone(440,0,1,.3);
+document.getElementById("beep").onclick=()=>sine(440,1,.3);
 build();select(0,false);
 </script>
 </body>
